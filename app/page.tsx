@@ -7,7 +7,7 @@ import LoadingState from "./components/LoadingState";
 import ValuationResult from "./components/ValuationResult";
 import OptionalInputs from "./components/OptionalInputs";
 import { PlayerData, PlayerSearchResult, ValuationResponse, LoadingStep } from "./lib/types";
-import { AlertCircle, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronUp, Sparkles, RotateCcw } from "lucide-react";
 
 export default function Home() {
   const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
@@ -74,6 +74,18 @@ export default function Home() {
     },
     [salary, contractYears]
   );
+
+  function handleReset() {
+    setSelectedLeague(null);
+    setPlayer(null);
+    setValuation(null);
+    setError(null);
+    setLoadingStep("idle");
+    setSalary("");
+    setContractYears("");
+    setShowOptional(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   const isLoading =
     loadingStep === "fetching" ||
@@ -156,7 +168,32 @@ export default function Home() {
         {/* ── Result ───────────────────────────────────────────────── */}
         {isDone && (
           <div className="mt-6">
+            {/* New search button — top */}
+            <div className="flex justify-between items-center mb-4">
+              <p className="text-sm text-muted">
+                Valuation for <span className="text-primary font-medium">{player.name}</span>
+              </p>
+              <button
+                onClick={handleReset}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border hover:border-accent text-muted hover:text-accent transition-colors text-sm font-medium"
+              >
+                <RotateCcw size={14} />
+                New search
+              </button>
+            </div>
+
             <ValuationResult player={player} valuation={valuation} />
+
+            {/* New search button — bottom */}
+            <div className="mt-8 flex justify-center">
+              <button
+                onClick={handleReset}
+                className="flex items-center gap-2 px-6 py-3 bg-accent hover:bg-accent/90 text-white font-semibold rounded-xl transition-colors"
+              >
+                <RotateCcw size={16} />
+                Valuate another player
+              </button>
+            </div>
           </div>
         )}
 
