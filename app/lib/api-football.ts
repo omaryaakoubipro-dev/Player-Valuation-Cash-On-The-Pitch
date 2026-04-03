@@ -50,28 +50,56 @@ async function apiFetch<T>(path: string): Promise<T> {
   return json;
 }
 
+// Top league IDs in API-Football — free plan requires league param with search
+const TOP_LEAGUES = [
+  39,  // Premier League
+  140, // La Liga
+  78,  // Bundesliga
+  135, // Serie A
+  61,  // Ligue 1
+  94,  // Primeira Liga
+  88,  // Eredivisie
+  203, // Super Lig
+  2,   // Champions League
+];
+
 // ─── Search Players ──────────────────────────────────────────────────────────
 export async function searchPlayers(
   query: string
 ): Promise<PlayerSearchResult[]> {
-  // Free plan only covers 2022-2024; try most recent first
-  const seasons = [2024, 2023, 2022];
+  // Free plan requires league + search. Search across top leagues in parallel.
+  const season = 2024;
+  const encoded = encodeURIComponent(query);
 
-  for (const season of seasons) {
-    const data = await apiFetch<{
-      response: ApiPlayerResponse[];
-    }>(`/players?search=${encodeURIComponent(query)}&season=${season}`);
+  const requests = TOP_LEAGUES.map((leagueId) =>
+    apiFetch<{ response: ApiPlayerResponse[] }>(
+      `/players?search=${encoded}&league=${leagueId}&season=${season}`
+    ).catch(() => ({ response: [] as ApiPlayerResponse[] }))
+  );
 
-    if (data.response && data.response.length > 0) {
-      return data.response.slice(0, 8).map(mapToSearchResult);
+  const results = await Promise.all(requests);
+
+  // Flatten, deduplicate by player ID, return top 8
+  const seen = new Set<number>();
+  const players: PlayerSearchResult[] = [];
+
+  for (const res of results) {
+    for (const item of res.response ?? []) {
+      if (!seen.has(item.player.id)) {
+        seen.add(item.player.id);
+        players.push(mapToSearchResult(item));
+      }
+      if (players.length >= 8) break;
     }
+    if (players.length >= 8) break;
   }
-  return [];
+
+  return players;
 }
 
 // ─── Fetch Full Player Data ──────────────────────────────────────────────────
 export async function fetchPlayerData(playerId: number): Promise<PlayerData> {
-  // Free plan only covers 2022-2024
+  // Fetching by id works on free plan without needing league param
   const seasons = [2024, 2023, 2022];
 
   for (const season of seasons) {
