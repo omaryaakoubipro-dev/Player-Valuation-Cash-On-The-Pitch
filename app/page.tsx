@@ -5,9 +5,9 @@ import LeagueSelector, { League } from "./components/LeagueSelector";
 import SearchBar from "./components/SearchBar";
 import LoadingState from "./components/LoadingState";
 import ValuationResult from "./components/ValuationResult";
-import OptionalInputs from "./components/OptionalInputs";
+import ContractInputs from "./components/ContractInputs";
 import { PlayerData, PlayerSearchResult, ValuationResponse, LoadingStep } from "./lib/types";
-import { AlertCircle, ChevronDown, ChevronUp, Sparkles, RotateCcw } from "lucide-react";
+import { AlertCircle, Sparkles, RotateCcw } from "lucide-react";
 
 export default function Home() {
   const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
@@ -17,15 +17,32 @@ export default function Home() {
   const [valuation, setValuation] = useState<ValuationResponse | null>(null);
   const [salary, setSalary] = useState("");
   const [contractYears, setContractYears] = useState("");
-  const [showOptional, setShowOptional] = useState(false);
 
-  // When the league changes, reset any previous result
+  const contractReady =
+    salary.trim() !== "" &&
+    !isNaN(parseFloat(salary)) &&
+    parseFloat(salary) > 0 &&
+    contractYears.trim() !== "" &&
+    !isNaN(parseFloat(contractYears)) &&
+    parseFloat(contractYears) >= 0;
+
   function handleLeagueSelect(league: League) {
     setSelectedLeague(league);
     setPlayer(null);
     setValuation(null);
     setError(null);
     setLoadingStep("idle");
+  }
+
+  function handleReset() {
+    setSelectedLeague(null);
+    setPlayer(null);
+    setValuation(null);
+    setError(null);
+    setLoadingStep("idle");
+    setSalary("");
+    setContractYears("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   const handlePlayerSelect = useCallback(
@@ -54,8 +71,8 @@ export default function Home() {
       try {
         const body = {
           player: playerData,
-          salary: salary ? parseFloat(salary) : undefined,
-          contractYearsRemaining: contractYears ? parseFloat(contractYears) : undefined,
+          salary: parseFloat(salary),
+          contractYearsRemaining: parseFloat(contractYears),
         };
 
         const res = await fetch("/api/valuation", {
@@ -74,18 +91,6 @@ export default function Home() {
     },
     [salary, contractYears]
   );
-
-  function handleReset() {
-    setSelectedLeague(null);
-    setPlayer(null);
-    setValuation(null);
-    setError(null);
-    setLoadingStep("idle");
-    setSalary("");
-    setContractYears("");
-    setShowOptional(false);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
 
   const isLoading =
     loadingStep === "fetching" ||
@@ -109,8 +114,8 @@ export default function Home() {
               <span className="text-accent"> worth?</span>
             </h1>
             <p className="text-muted text-lg max-w-xl mx-auto">
-              Pick a league, search a player, get an AI-powered market valuation
-              with detailed analysis and comparable transfers.
+              Fill in the 3 fields below, then search a player for an AI-powered
+              market valuation with detailed analysis and comparable transfers.
             </p>
           </div>
         )}
@@ -121,34 +126,23 @@ export default function Home() {
         </section>
 
         {/* ── Step 2: Player search ─────────────────────────────────── */}
-        <section className="mb-4">
+        <section className="mb-6">
           <SearchBar
             leagueId={selectedLeague?.id ?? null}
             onSelect={handlePlayerSelect}
-            disabled={isLoading}
+            disabled={isLoading || !contractReady}
+            contractReady={contractReady}
           />
+        </section>
 
-          {/* Optional inputs toggle */}
-          <div className="max-w-2xl mx-auto mt-3">
-            <button
-              onClick={() => setShowOptional((v) => !v)}
-              className="flex items-center gap-1.5 text-sm text-muted hover:text-accent transition-colors mx-auto"
-            >
-              {showOptional ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-              {showOptional ? "Hide" : "Add"} salary &amp; contract data (optional, improves accuracy)
-            </button>
-
-            {showOptional && (
-              <div className="mt-3">
-                <OptionalInputs
-                  salary={salary}
-                  contractYears={contractYears}
-                  onSalaryChange={setSalary}
-                  onContractYearsChange={setContractYears}
-                />
-              </div>
-            )}
-          </div>
+        {/* ── Step 3: Contract & Salary ─────────────────────────────── */}
+        <section className="mb-6">
+          <ContractInputs
+            salary={salary}
+            contractYears={contractYears}
+            onSalaryChange={setSalary}
+            onContractYearsChange={setContractYears}
+          />
         </section>
 
         {/* ── Loading ──────────────────────────────────────────────── */}
@@ -168,7 +162,6 @@ export default function Home() {
         {/* ── Result ───────────────────────────────────────────────── */}
         {isDone && (
           <div className="mt-6">
-            {/* New search button — top */}
             <div className="flex justify-between items-center mb-4">
               <p className="text-sm text-muted">
                 Valuation for <span className="text-primary font-medium">{player.name}</span>
@@ -184,7 +177,6 @@ export default function Home() {
 
             <ValuationResult player={player} valuation={valuation} />
 
-            {/* New search button — bottom */}
             <div className="mt-8 flex justify-center">
               <button
                 onClick={handleReset}

@@ -9,9 +9,10 @@ interface Props {
   leagueId: number | null;
   onSelect: (player: PlayerSearchResult) => void;
   disabled?: boolean;
+  contractReady?: boolean;
 }
 
-export default function SearchBar({ leagueId, onSelect, disabled }: Props) {
+export default function SearchBar({ leagueId, onSelect, disabled, contractReady }: Props) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PlayerSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -101,7 +102,7 @@ export default function SearchBar({ leagueId, onSelect, disabled }: Props) {
     setError(null);
   }
 
-  const isDisabled = disabled || !leagueId;
+  const isDisabled = disabled || !leagueId || contractReady === false;
 
   const POSITION_COLORS: Record<string, string> = {
     Forward:    "bg-red-500/20 text-red-400 border-red-500/30",
@@ -145,6 +146,8 @@ export default function SearchBar({ leagueId, onSelect, disabled }: Props) {
               placeholder={
                 !leagueId
                   ? "← Select a league first"
+                  : contractReady === false
+                  ? "← Fill in salary & contract first"
                   : "Type a player name... (e.g. Pedri, Haaland, Salah)"
               }
               disabled={isDisabled}
