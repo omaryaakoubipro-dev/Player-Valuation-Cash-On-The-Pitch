@@ -144,6 +144,26 @@ function mapToSearchResult(r: ApiPlayerResponse): PlayerSearchResult {
   };
 }
 
+/**
+ * API-Football returns passes.accuracy as the COUNT of accurate passes per game
+ * (e.g. 41), not a percentage — while passes.total is total passes per game (e.g. 44).
+ * When both are small per-game averages (total < 200), divide to get the real %.
+ * When total is a large season-level number (≥ 200), accuracy is already a %.
+ */
+function computePassAccuracy(
+  accuracy: string | null,
+  total: number | null
+): number {
+  const acc = parseFloat(accuracy ?? "0") || 0;
+  if (acc === 0) return 0;
+  if (total && total > 0 && total < 200) {
+    // Both values are per-game averages: calculate the real percentage
+    return Math.min(99, Math.round((acc / total) * 100));
+  }
+  // total is a large season number: accuracy is already a percentage
+  return acc;
+}
+
 function mapToPlayerData(r: ApiPlayerResponse, season: number): PlayerData {
   // Use first statistics entry (primary club/league)
   const stat = r.statistics[0] ?? ({} as ApiStatistics);
@@ -167,7 +187,7 @@ function mapToPlayerData(r: ApiPlayerResponse, season: number): PlayerData {
     dribbles: dribbles.attempts ?? 0,
     dribblesSucceeded: dribbles.success ?? 0,
     keyPasses: passes.key ?? 0,
-    passAccuracy: parseFloat(passes.accuracy ?? "0") || 0,
+    passAccuracy: computePassAccuracy(passes.accuracy, passes.total),
     passesTotal: passes.total ?? 0,
     tackles: tackles.total ?? 0,
     interceptions: tackles.interceptions ?? 0,
