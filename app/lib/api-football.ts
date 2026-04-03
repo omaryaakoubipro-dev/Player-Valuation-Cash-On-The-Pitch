@@ -65,36 +65,13 @@ const TOP_LEAGUES = [
 
 // ─── Search Players ──────────────────────────────────────────────────────────
 export async function searchPlayers(
-  query: string
+  query: string,
+  leagueId: number
 ): Promise<PlayerSearchResult[]> {
-  // Free plan requires league + search. Search across top leagues in parallel.
-  const season = 2024;
-  const encoded = encodeURIComponent(query);
-
-  const requests = TOP_LEAGUES.map((leagueId) =>
-    apiFetch<{ response: ApiPlayerResponse[] }>(
-      `/players?search=${encoded}&league=${leagueId}&season=${season}`
-    ).catch(() => ({ response: [] as ApiPlayerResponse[] }))
+  const data = await apiFetch<{ response: ApiPlayerResponse[] }>(
+    `/players?search=${encodeURIComponent(query)}&league=${leagueId}&season=2024`
   );
-
-  const results = await Promise.all(requests);
-
-  // Flatten, deduplicate by player ID, return top 8
-  const seen = new Set<number>();
-  const players: PlayerSearchResult[] = [];
-
-  for (const res of results) {
-    for (const item of res.response ?? []) {
-      if (!seen.has(item.player.id)) {
-        seen.add(item.player.id);
-        players.push(mapToSearchResult(item));
-      }
-      if (players.length >= 8) break;
-    }
-    if (players.length >= 8) break;
-  }
-
-  return players;
+  return (data.response ?? []).slice(0, 8).map(mapToSearchResult);
 }
 
 // ─── Fetch Full Player Data ──────────────────────────────────────────────────
