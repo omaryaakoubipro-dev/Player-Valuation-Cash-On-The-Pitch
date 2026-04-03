@@ -15,6 +15,7 @@ export default function SearchBar({ onSelect, disabled }: Props) {
   const [results, setResults] = useState<PlayerSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -30,21 +31,28 @@ export default function SearchBar({ onSelect, disabled }: Props) {
   }, []);
 
   const search = useCallback(async (q: string) => {
-    if (q.length < 2) {
+    if (q.trim().length < 2) {
       setResults([]);
       setOpen(false);
       return;
     }
     setLoading(true);
+    setError(null);
     try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q.trim())}`);
       const data = await res.json();
-      if (data.players) {
+      if (!res.ok) throw new Error(data.error ?? "Search failed");
+      if (data.players && data.players.length > 0) {
         setResults(data.players);
         setOpen(true);
+      } else {
+        setResults([]);
+        setOpen(true); // show "no results" message
       }
-    } catch {
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Search failed");
       setResults([]);
+      setOpen(true);
     } finally {
       setLoading(false);
     }
@@ -53,8 +61,21 @@ export default function SearchBar({ onSelect, disabled }: Props) {
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value;
     setQuery(val);
+    // Debounce auto-search while typing
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => search(val), 400);
+    debounceRef.current = setTimeout(() => search(val), 500);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      search(query);
+    }
+  }
+
+  function handleSearchClick() {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    search(query);
   }
 
   function handleSelect(player: PlayerSearchResult) {
@@ -68,6 +89,7 @@ export default function SearchBar({ onSelect, disabled }: Props) {
     setQuery("");
     setResults([]);
     setOpen(false);
+    setError(null);
   }
 
   const POSITION_COLORS: Record<string, string> = {
@@ -79,40 +101,61 @@ export default function SearchBar({ onSelect, disabled }: Props) {
 
   return (
     <div ref={containerRef} className="relative w-full max-w-2xl mx-auto">
-      <div
-        className={`flex items-center gap-3 px-4 py-3.5 rounded-xl border bg-surface transition-all duration-200 ${
-          open ? "border-accent shadow-lg shadow-accent/10" : "border-border hover:border-accent/50"
-        }`}
-      >
-        {loading ? (
-          <Loader2 size={20} className="text-accent animate-spin shrink-0" />
-        ) : (
-          <Search size={20} className="text-muted shrink-0" />
-        )}
-        <input
-          type="text"
-          value={query}
-          onChange={handleChange}
-          onFocus={() => results.length > 0 && setOpen(true)}
-          placeholder="Search for a player (e.g. Erling Haaland, Pedri, Salah...)"
-          disabled={disabled}
-          className="flex-1 bg-transparent text-primary placeholder:text-muted outline-none text-base disabled:opacity-50"
-          autoComplete="off"
-          spellCheck={false}
-        />
-        {query && (
-          <button onClick={clear} className="text-muted hover:text-primary transition-colors">
-            <X size={18} />
-          </button>
-        )}
+      {/* Search input row */}
+      <div className="flex gap-2">
+        <div
+          className={`flex flex-1 items-center gap-3 px-4 py-3.5 rounded-xl border bg-surface transition-all duration-200 ${
+            open ? "border-accent shadow-lg shadow-accent/10" : "border-border hover:border-accent/50"
+          }`}
+        >
+          {loading ? (
+            <Loader2 size={20} className="text-accent animate-spin shrink-0" />
+          ) : (
+            <Search size={20} className="text-muted shrink-0" />
+          )}
+          <input
+            type="text"
+            value={query}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            onFocus={() => results.length > 0 && setOpen(true)}
+            placeholder="Tape un nom de joueur... (ex: Pedri, Haaland, Salah)"
+            disabled={disabled}
+            className="flex-1 bg-transparent text-primary placeholder:text-muted outline-none text-base disabled:opacity-50"
+            autoComplete="off"
+            spellCheck={false}
+          />
+          {query && (
+            <button onClick={clear} className="text-muted hover:text-primary transition-colors">
+              <X size={18} />
+            </button>
+          )}
+        </div>
+
+        {/* Search button */}
+        <button
+          onClick={handleSearchClick}
+          disabled={disabled || loading || query.trim().length < 2}
+          className="px-5 py-3.5 bg-accent hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors flex items-center gap-2 shrink-0"
+        >
+          {loading ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />}
+          <span className="hidden sm:inline">Rechercher</span>
+        </button>
       </div>
+
+      {/* Hint */}
+      {!open && query.length === 0 && (
+        <p className="text-xs text-muted text-center mt-2">
+          Tape un nom puis appuie sur Entrée ou clique Rechercher
+        </p>
+      )}
 
       {/* Dropdown */}
       {open && results.length > 0 && (
         <div className="absolute top-full left-0 right-0 mt-2 bg-surface border border-border rounded-xl shadow-2xl z-50 overflow-hidden">
           <div className="p-2 border-b border-border">
             <p className="text-xs text-muted px-2">
-              {results.length} player{results.length > 1 ? "s" : ""} found
+              {results.length} joueur{results.length > 1 ? "s" : ""} trouvé{results.length > 1 ? "s" : ""} — clique pour sélectionner
             </p>
           </div>
           <ul className="max-h-80 overflow-y-auto divide-y divide-border/50">
@@ -173,7 +216,7 @@ export default function SearchBar({ onSelect, disabled }: Props) {
 
                   {/* Age + Nationality */}
                   <div className="text-right shrink-0">
-                    <div className="text-sm font-medium text-primary">{player.age} yrs</div>
+                    <div className="text-sm font-medium text-primary">{player.age} ans</div>
                     <div className="text-xs text-muted">{player.nationality}</div>
                   </div>
                 </button>
@@ -183,10 +226,22 @@ export default function SearchBar({ onSelect, disabled }: Props) {
         </div>
       )}
 
-      {open && !loading && results.length === 0 && query.length >= 2 && (
+      {/* No results */}
+      {open && !loading && results.length === 0 && !error && query.trim().length >= 2 && (
         <div className="absolute top-full left-0 right-0 mt-2 bg-surface border border-border rounded-xl shadow-2xl z-50 p-6 text-center">
-          <p className="text-muted">No players found for &quot;{query}&quot;</p>
-          <p className="text-xs text-muted/60 mt-1">Try a different name or spelling</p>
+          <p className="text-muted">Aucun joueur trouvé pour &quot;{query}&quot;</p>
+          <p className="text-xs text-muted/60 mt-1">Essaie un autre nom ou orthographe</p>
+        </div>
+      )}
+
+      {/* API Error */}
+      {open && error && (
+        <div className="absolute top-full left-0 right-0 mt-2 bg-surface border border-red-500/30 rounded-xl shadow-2xl z-50 p-4 text-center">
+          <p className="text-red-400 text-sm font-medium">Erreur de recherche</p>
+          <p className="text-xs text-muted mt-1">{error}</p>
+          <p className="text-xs text-muted/60 mt-2">
+            Vérifie que la clé API_FOOTBALL_KEY est bien configurée sur Vercel
+          </p>
         </div>
       )}
     </div>
