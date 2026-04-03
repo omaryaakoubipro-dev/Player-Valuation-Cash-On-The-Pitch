@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+/* ─── Design Tokens ──────────────────────────────────────────────────────── */
+:root {
+  /* Light mode */
+  --background: #f8f9fb;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f1f3f7;
+  --color-hover: #e8ecf2;
+  --color-border: #dde1eb;
+  --color-primary: #0f1117;
+  --color-secondary: #2d3341;
+  --color-muted: #7a849a;
+  --color-accent: #2563eb;   /* Electric blue — Bloomberg terminal energy */
+}
+
+.dark {
+  /* Dark mode — Bloomberg terminal */
+  --background: #0d0f14;
+  --color-surface: #141720;
+  --color-surface-alt: #1a1e2a;
+  --color-hover: #1f2433;
+  --color-border: #262d3f;
+  --color-primary: #e8ecf4;
+  --color-secondary: #a8b4cc;
+  --color-muted: #5a6478;
+  --color-accent: #3b82f6;   /* Slightly lighter blue in dark mode */
+}
+
+/* ─── Tailwind Theme Extension ───────────────────────────────────────────── */
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--color-surface);
+  --color-surface-alt: var(--color-surface-alt);
+  --color-hover: var(--color-hover);
+  --color-border: var(--color-border);
+  --color-primary: var(--color-primary);
+  --color-secondary: var(--color-secondary);
+  --color-muted: var(--color-muted);
+  --color-accent: var(--color-accent);
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", monospace;
+}
+
+/* ─── Base ───────────────────────────────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--color-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Animations ─────────────────────────────────────────────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out both;
+}
+
+/* Staggered children */
+.animate-fade-in > * {
+  animation: fade-in 0.4s ease-out both;
+}
+.animate-fade-in > *:nth-child(1) { animation-delay: 0ms;   }
+.animate-fade-in > *:nth-child(2) { animation-delay: 80ms;  }
+.animate-fade-in > *:nth-child(3) { animation-delay: 160ms; }
+.animate-fade-in > *:nth-child(4) { animation-delay: 240ms; }
+.animate-fade-in > *:nth-child(5) { animation-delay: 320ms; }
+.animate-fade-in > *:nth-child(6) { animation-delay: 400ms; }
+.animate-fade-in > *:nth-child(7) { animation-delay: 480ms; }
+
+/* ─── Scrollbar ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-muted); }
+
+/* ─── Selection ──────────────────────────────────────────────────────────── */
+::selection {
+  background-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  color: var(--color-primary);
+}
