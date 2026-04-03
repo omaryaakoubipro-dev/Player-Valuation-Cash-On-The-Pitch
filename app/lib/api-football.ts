@@ -54,9 +54,8 @@ async function apiFetch<T>(path: string): Promise<T> {
 export async function searchPlayers(
   query: string
 ): Promise<PlayerSearchResult[]> {
-  // Try current season first, fall back to previous if empty
-  const currentYear = new Date().getFullYear();
-  const seasons = [currentYear - 1, currentYear - 2]; // 2024-25 season → 2024
+  // Free plan only covers 2022-2024; try most recent first
+  const seasons = [2024, 2023, 2022];
 
   for (const season of seasons) {
     const data = await apiFetch<{
@@ -72,8 +71,8 @@ export async function searchPlayers(
 
 // ─── Fetch Full Player Data ──────────────────────────────────────────────────
 export async function fetchPlayerData(playerId: number): Promise<PlayerData> {
-  const currentYear = new Date().getFullYear();
-  const seasons = [currentYear - 1, currentYear - 2];
+  // Free plan only covers 2022-2024
+  const seasons = [2024, 2023, 2022];
 
   for (const season of seasons) {
     const data = await apiFetch<{
