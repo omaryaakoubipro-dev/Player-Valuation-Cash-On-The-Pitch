@@ -131,7 +131,7 @@ export default function Home() {
               {
                 icon: "🔍",
                 title: "Just type a name",
-                desc: "No league selector, no form fields. Claude finds everything — stats, salary, contract — automatically.",
+                desc: "No league selector, no form fields. We find everything — stats, salary, contract — automatically.",
               },
               {
                 icon: "📊",
