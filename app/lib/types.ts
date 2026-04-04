@@ -1,96 +1,58 @@
-// ─── Player Search Result ───────────────────────────────────────────────────
-export interface PlayerSearchResult {
-  id: number;
-  name: string;
-  photo: string;
-  nationality: string;
-  age: number;
-  club: string;
-  clubLogo: string;
-  league: string;
-  leagueLogo: string;
-  position: string;
-}
-
-// ─── Full Player Data (from API-Football) ───────────────────────────────────
+// ─── Position ────────────────────────────────────────────────────────────────
 export type Position = "Forward" | "Midfielder" | "Defender" | "Goalkeeper";
 
+// ─── Player info returned by Claude after web search ─────────────────────────
 export interface PlayerStats {
-  // General
-  appearances: number;
-  minutesPlayed: number;
-
-  // Attacking
-  goals: number;
-  assists: number;
-  shots: number;
-  shotsOnTarget: number;
+  appearances?: number;
+  minutesPlayed?: number;
+  goals?: number;
+  assists?: number;
+  shots?: number;
+  shotsOnTarget?: number;
   xG?: number;
-  dribbles: number;
-  dribblesSucceeded: number;
-  keyPasses: number;
-
-  // Passing
-  passAccuracy: number;
-  passesTotal: number;
-  longPassAccuracy?: number;
+  xA?: number;
+  dribbles?: number;
+  dribblesSucceeded?: number;
+  keyPasses?: number;
+  passAccuracy?: number;
   progressivePasses?: number;
-
-  // Defensive
-  tackles: number;
-  tacklesWon?: number;
-  interceptions: number;
-  blocks: number;
+  progressiveCarries?: number;
+  tackles?: number;
+  interceptions?: number;
+  blocks?: number;
   aerialDuelsWon?: number;
   aerialDuelsTotal?: number;
   cleanSheets?: number;
-  defensiveErrors?: number;
-
-  // Goalkeeper
   saves?: number;
-  savesTotal?: number;
+  savePercentage?: number;
   goalsConceded?: number;
   penaltiesSaved?: number;
 }
 
-export interface PlayerData {
-  id: number;
+export interface PlayerInfo {
   name: string;
-  firstname: string;
-  lastname: string;
-  photo: string;
   age: number;
   nationality: string;
   position: Position;
-  height?: string;
-  weight?: string;
-
   club: string;
-  clubLogo: string;
   league: string;
-  leagueLogo: string;
-  leagueCountry: string;
-  season: number;
-
+  season: string; // e.g. "2024/25"
+  height?: string;
   stats: PlayerStats;
-
-  // Optional user inputs
-  salary?: number; // monthly in EUR
-  contractYearsRemaining?: number;
 }
 
-// ─── Valuation Request ──────────────────────────────────────────────────────
+// ─── Valuation request ────────────────────────────────────────────────────────
 export interface ValuationRequest {
-  player: PlayerData;
-  salary?: number;
-  contractYearsRemaining?: number;
+  playerName: string;
+  salary: number;           // monthly in EUR
+  contractYearsRemaining: number;
 }
 
-// ─── Valuation Response (from Claude) ───────────────────────────────────────
+// ─── Valuation response (from Claude) ────────────────────────────────────────
 export interface ValuationFactor {
   name: string;
-  score: number; // 0-100
-  weight: number; // 0-100, how much this factor contributes
+  score: number;      // 0-100
+  weight: number;     // 0-100, all weights sum to 100
   description: string;
 }
 
@@ -102,10 +64,18 @@ export interface SimilarPlayer {
   reason: string;
 }
 
+export interface RadarDataPoint {
+  metric: string;
+  playerValue: number;  // 0-100 normalised
+  leagueAvg: number;    // 0-100 normalised
+}
+
 export interface ValuationResponse {
-  valuationMin: number; // in millions EUR
-  valuationMax: number; // in millions EUR
-  valuationMid: number; // central estimate
+  playerInfo: PlayerInfo;
+
+  valuationMin: number;   // millions EUR
+  valuationMax: number;
+  valuationMid: number;
   currency: "EUR";
 
   factors: ValuationFactor[];
@@ -116,24 +86,13 @@ export interface ValuationResponse {
   similarPlayers: SimilarPlayer[];
 
   verdict: string;
-  confidenceScore: number; // 0-100
+  confidenceScore: number;    // 0-100
   confidenceReason: string;
 
-  // Radar chart data: position-specific metrics normalized 0-100
   radarData: RadarDataPoint[];
+
+  sourcesConsulted: string[];  // e.g. ["FBref", "Transfermarkt", "WhoScored"]
 }
 
-export interface RadarDataPoint {
-  metric: string;
-  playerValue: number; // 0-100 normalized
-  leagueAvg: number; // 0-100 normalized
-}
-
-// ─── App State ───────────────────────────────────────────────────────────────
-export type LoadingStep =
-  | "idle"
-  | "searching"
-  | "fetching"
-  | "analyzing"
-  | "done"
-  | "error";
+// ─── App loading state ────────────────────────────────────────────────────────
+export type LoadingStep = "idle" | "analyzing" | "done" | "error";

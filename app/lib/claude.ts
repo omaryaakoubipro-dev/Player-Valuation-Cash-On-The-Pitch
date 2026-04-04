@@ -1,123 +1,111 @@
 /**
  * Anthropic Claude client for football player valuation.
- * Uses claude-sonnet-4-20250514 with position-aware analysis prompts.
+ * Uses claude-sonnet-4-20250514 with the built-in web_search tool to fetch
+ * live player stats from FBref, Transfermarkt, WhoScored, etc., then
+ * produces a detailed market value analysis.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
-import { PlayerData, Position, RadarDataPoint, ValuationResponse } from "./types";
+import { ValuationRequest, ValuationResponse, Position } from "./types";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-// ─── Position-Specific Metrics Descriptions ───────────────────────────────────
+// ─── Position-Specific Metric Guidelines ─────────────────────────────────────
 const POSITION_METRICS: Record<Position, string> = {
   Forward: `
-Key metrics for forwards:
-- Goals & xG (expected goals): Direct output and efficiency
-- Shots on target %: Clinical finishing
-- Dribbles completed: 1v1 ability
-- Conversion rate (goals/shots): Finishing quality
-- Assists & key passes: Attacking creativity
-- Movement off the ball: Positional intelligence (inferred from minutes/appearances)`,
+Key metrics for forwards (search these specifically):
+- Goals, xG (expected goals), shots on target %
+- Dribbles completed, conversion rate (goals/shots)
+- Assists & key passes, movement off the ball`,
 
   Midfielder: `
-Key metrics for midfielders:
-- Key passes & chances created: Creativity and vision
-- Pass accuracy: Technical quality
-- Progressive passes & carries: Ball progression
-- Assists: Direct goal contributions
-- Interceptions & tackles: Defensive work rate
-- Dribbles: Ability to break lines
-- Appearances/minutes: Fitness and importance to the team`,
+Key metrics for midfielders (search these specifically):
+- Key passes, progressive passes, progressive carries
+- Assists, pass accuracy, chances created
+- Interceptions & tackles (for box-to-box/defensive mids)
+- Distance covered / pressing stats`,
 
   Defender: `
-Key metrics for defenders:
-- Tackles won & interceptions: Defensive actions
-- Aerial duels won %: Aerial ability
-- Blocks: Shot-stopping ability
-- Pass accuracy & long pass accuracy: Building from the back
-- Clean sheets (team stat, weighted): Defensive solidity
-- Defensive errors: Reliability
-Note: A defender who scores 2 goals is not necessarily a good or bad player — goals are NOT the primary metric.`,
+Key metrics for defenders (search these specifically):
+- Tackles won, interceptions, blocks
+- Aerial duels won %
+- Pass accuracy, long pass accuracy
+- Clean sheets (team stat, weighted)
+- Defensive errors
+NOTE: A defender who scores 2 goals is NOT a bad player — goals are not the primary metric.`,
 
   Goalkeeper: `
-Key metrics for goalkeepers:
-- Saves & save percentage: Shot-stopping
-- Clean sheets: Defensive solidity
-- Goals prevented vs xG faced (if available): Performance above expected
-- Penalty saves: High-pressure moments
-- Distribution accuracy: Modern goalkeeper requirement
-- Goals conceded: Raw output`,
+Key metrics for goalkeepers (search these specifically):
+- Saves & save percentage
+- Clean sheets
+- Goals prevented vs xG faced (PSxG)
+- Penalty saves
+- Distribution accuracy / progressive passing`,
 };
 
-// ─── League Prestige Mapping ──────────────────────────────────────────────────
-// Used to contextualize the player's league in the valuation
-const LEAGUE_PRESTIGE: Record<string, string> = {
-  "Premier League": "tier-1 (highest prestige, global reach)",
-  "La Liga": "tier-1 (elite, global reach)",
-  "Bundesliga": "tier-1 (elite)",
-  "Serie A": "tier-1 (elite)",
-  "Ligue 1": "tier-1 (top European)",
-  "Eredivisie": "tier-2 (strong European)",
-  "Primeira Liga": "tier-2 (strong European)",
-  "Super Lig": "tier-2",
-  "Championship": "tier-2 (English second division)",
-  "Bundesliga 2": "tier-2 (German second division)",
-};
+// ─── Build the full prompt ────────────────────────────────────────────────────
+function buildPrompt(req: ValuationRequest): string {
+  return `You are an elite football player valuation analyst. Your task is to research and value ${req.playerName}.
 
-function getLeaguePrestige(league: string): string {
-  for (const [key, value] of Object.entries(LEAGUE_PRESTIGE)) {
-    if (league.toLowerCase().includes(key.toLowerCase())) return value;
-  }
-  return "tier-3 or lower (limited global exposure)";
-}
+CONTRACT & SALARY (provided by user):
+- Monthly salary: €${req.salary.toLocaleString()} (≈ €${(req.salary * 12).toLocaleString()}/year)
+- Contract years remaining: ${req.contractYearsRemaining}
 
-// ─── Build Claude Prompt ──────────────────────────────────────────────────────
-function buildValuationPrompt(player: PlayerData): string {
-  const s = player.stats;
-  const leaguePrestige = getLeaguePrestige(player.league);
+RESEARCH INSTRUCTIONS:
+1. Search the web for "${req.playerName} stats 2024-25 season" to find their current stats from FBref, WhoScored, or SofaScore.
+2. Search for "${req.playerName} Transfermarkt" to find their current club, age, nationality, market value, and contract details.
+3. Search for "${req.playerName} position" to confirm their position if needed.
 
-  // Build position-specific stats block
-  const statsBlock = buildStatsBlock(player);
+POSITION-SPECIFIC METRICS TO LOOK FOR:
+(You will determine the position from your searches, then apply the right metrics)
+- Forward: goals, xG, shots on target, dribbles, conversion rate
+- Midfielder: key passes, progressive passes, assists, interceptions, pass accuracy
+- Defender: tackles, interceptions, aerial duels, blocks, pass accuracy
+- Goalkeeper: saves, save %, clean sheets, xGA vs goals conceded, distribution
 
-  const contractInfo =
-    player.contractYearsRemaining !== undefined && player.salary !== undefined
-      ? `
-CONTRACT INFORMATION (provided by user — improves precision):
-- Monthly salary: €${player.salary.toLocaleString()}
-- Contract years remaining: ${player.contractYearsRemaining} year(s)
-- Annual salary cost: ~€${(player.salary * 12).toLocaleString()}`
-      : player.contractYearsRemaining !== undefined
-      ? `- Contract years remaining: ${player.contractYearsRemaining} year(s)`
-      : player.salary !== undefined
-      ? `- Monthly salary: €${player.salary.toLocaleString()} / Annual: ~€${(player.salary * 12).toLocaleString()}`
-      : "Not provided — factor in uncertainty around contract situation";
-
-  return `You are an elite football player valuation analyst combining Transfermarkt methodology with advanced statistics and market intelligence.
-
-PLAYER PROFILE:
-- Name: ${player.name}
-- Age: ${player.age}
-- Nationality: ${player.nationality}
-- Position: ${player.position}
-- Club: ${player.club}
-- League: ${player.league} (${leaguePrestige})
-- Season: ${player.season}/${player.season + 1}
-${player.height ? `- Height: ${player.height}` : ""}${player.weight ? ` | Weight: ${player.weight}` : ""}
-
-${statsBlock}
-
-CONTRACT & SALARY:
-${contractInfo}
-
-POSITION-SPECIFIC ANALYSIS GUIDELINES:
-${POSITION_METRICS[player.position]}
-
-TASK: Produce a comprehensive market value estimate with the following structure. Respond in valid JSON only — no markdown, no code blocks, just the raw JSON object.
+VALUATION TASK:
+After researching, produce a comprehensive market value estimate. Return a single valid JSON object — no markdown, no code fences, just raw JSON.
 
 {
+  "playerInfo": {
+    "name": "<full name>",
+    "age": <number>,
+    "nationality": "<country>",
+    "position": "<Forward|Midfielder|Defender|Goalkeeper>",
+    "club": "<current club>",
+    "league": "<league name>",
+    "season": "<e.g. 2024/25>",
+    "height": "<e.g. 180 cm or null>",
+    "stats": {
+      "appearances": <number or null>,
+      "minutesPlayed": <number or null>,
+      "goals": <number or null>,
+      "assists": <number or null>,
+      "shots": <number or null>,
+      "shotsOnTarget": <number or null>,
+      "xG": <number or null>,
+      "xA": <number or null>,
+      "keyPasses": <number or null>,
+      "passAccuracy": <number 0-100 or null>,
+      "progressivePasses": <number or null>,
+      "progressiveCarries": <number or null>,
+      "dribbles": <number or null>,
+      "dribblesSucceeded": <number or null>,
+      "tackles": <number or null>,
+      "interceptions": <number or null>,
+      "blocks": <number or null>,
+      "aerialDuelsWon": <number or null>,
+      "aerialDuelsTotal": <number or null>,
+      "cleanSheets": <number or null>,
+      "saves": <number or null>,
+      "savePercentage": <number or null>,
+      "goalsConceded": <number or null>,
+      "penaltiesSaved": <number or null>
+    }
+  },
   "valuationMin": <number in millions EUR>,
   "valuationMax": <number in millions EUR>,
-  "valuationMid": <number in millions EUR>,
+  "valuationMid": <central estimate in millions EUR>,
   "currency": "EUR",
   "factors": [
     {
@@ -132,109 +120,90 @@ TASK: Produce a comprehensive market value estimate with the following structure
   "similarPlayers": [
     {
       "name": "<player name>",
-      "club": "<club>",
+      "club": "<club at time of transfer>",
       "transferFee": "<e.g. €72M>",
       "year": <year>,
-      "reason": "<why this is a comparable>"
+      "reason": "<why comparable>"
     }
   ],
-  "verdict": "<2-3 paragraph plain-language explanation of the valuation>",
+  "verdict": "<2-3 paragraph plain-language valuation explanation citing actual stats>",
   "confidenceScore": <0-100>,
-  "confidenceReason": "<why you are more or less confident>",
+  "confidenceReason": "<why more or less confident>",
   "radarData": [
     {
       "metric": "<metric name>",
-      "playerValue": <0-100 normalized>,
-      "leagueAvg": <0-100 normalized>
+      "playerValue": <0-100 normalised>,
+      "leagueAvg": <0-100 normalised>
     }
-  ]
+  ],
+  "sourcesConsulted": ["<e.g. FBref>", "<Transfermarkt>", "..."]
 }
 
 REQUIREMENTS:
-1. factors: Include exactly 6 factors — "Age Curve", "Performance Level", "Contract Situation", "League Level", "Profile Rarity", "Marketability". Weights must sum to 100.
-2. radarData: Include exactly 6 metrics relevant to ${player.position}. Normalize both playerValue and leagueAvg to 0-100 scale where 100 = world class, 50 = league average.
-3. similarPlayers: Include 3 real comparable transfers from the last 5 years.
-4. valuationMin and valuationMax should reflect realistic market uncertainty (typically ±15-25% of mid).
-5. Use position-specific logic — do NOT penalize defenders for low goal counts.
-6. If contract/salary data is missing, note the uncertainty in the verdict and widen the range slightly.
-7. Ensure the verdict is engaging, specific, and cites actual stats.`;
-}
-
-function buildStatsBlock(player: PlayerData): string {
-  const s = player.stats;
-  const lines: string[] = [
-    `SEASON STATISTICS (${player.season}/${player.season + 1}):`,
-    `- Appearances: ${s.appearances} | Minutes: ${s.minutesPlayed}`,
-  ];
-
-  if (player.position === "Goalkeeper") {
-    lines.push(
-      `- Goals conceded: ${s.goalsConceded ?? "N/A"}`,
-      `- Saves: ${s.saves ?? "N/A"}`,
-      `- Penalties saved: ${s.penaltiesSaved ?? "N/A"}`,
-      `- Pass accuracy: ${s.passAccuracy}%`
-    );
-  } else if (player.position === "Defender") {
-    lines.push(
-      `- Tackles: ${s.tackles} | Interceptions: ${s.interceptions} | Blocks: ${s.blocks}`,
-      `- Aerial duels won: ${s.aerialDuelsWon ?? "N/A"} / ${s.aerialDuelsTotal ?? "N/A"}`,
-      `- Pass accuracy: ${s.passAccuracy}% | Total passes: ${s.passesTotal}`,
-      `- Goals: ${s.goals} | Assists: ${s.assists}` // still show but contextualized
-    );
-  } else if (player.position === "Midfielder") {
-    lines.push(
-      `- Goals: ${s.goals} | Assists: ${s.assists}`,
-      `- Key passes: ${s.keyPasses} | Pass accuracy: ${s.passAccuracy}% | Total passes: ${s.passesTotal}`,
-      `- Dribbles attempted: ${s.dribbles} | Succeeded: ${s.dribblesSucceeded}`,
-      `- Tackles: ${s.tackles} | Interceptions: ${s.interceptions}`
-    );
-  } else {
-    // Forward
-    lines.push(
-      `- Goals: ${s.goals} | Assists: ${s.assists}`,
-      `- Shots: ${s.shots} | On target: ${s.shotsOnTarget}`,
-      `- Dribbles attempted: ${s.dribbles} | Succeeded: ${s.dribblesSucceeded}`,
-      `- Key passes: ${s.keyPasses} | Pass accuracy: ${s.passAccuracy}%`
-    );
-  }
-
-  return lines.join("\n");
+1. factors: Exactly 6 — "Age Curve", "Performance Level", "Contract Situation", "League Level", "Profile Rarity", "Marketability". Weights must sum to 100.
+2. radarData: Exactly 6 position-relevant metrics, normalised 0-100 (100 = world class, 50 = league average).
+3. similarPlayers: 3 real comparable transfers from the last 5 years.
+4. Contract situation: ${req.contractYearsRemaining} years remaining and €${(req.salary * 12).toLocaleString()}/yr salary are already known — factor them directly.
+5. Use position-specific logic — do NOT penalise defenders for low goal counts.
+6. The verdict must cite actual stats you found.`;
 }
 
 // ─── Main Valuation Function ──────────────────────────────────────────────────
-export async function valuatePlayer(player: PlayerData): Promise<ValuationResponse> {
-  const prompt = buildValuationPrompt(player);
+export async function valuatePlayer(
+  req: ValuationRequest
+): Promise<ValuationResponse> {
+  const prompt = buildPrompt(req);
 
-  const message = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 4096,
-    messages: [
-      {
-        role: "user",
-        content: prompt,
-      },
-    ],
-  });
+  const messages: Anthropic.MessageParam[] = [
+    { role: "user", content: prompt },
+  ];
 
-  const content = message.content[0];
-  if (content.type !== "text") {
-    throw new Error("Unexpected response type from Claude");
+  // Agentic loop — Claude may call web_search multiple times before answering.
+  // For web_search_20250305 (server-side tool), Anthropic executes the searches
+  // and returns the results as web_search_tool_result blocks in the same response.
+  // We keep looping until stop_reason === "end_turn".
+  const MAX_ITERATIONS = 12;
+
+  for (let i = 0; i < MAX_ITERATIONS; i++) {
+    const response = await client.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 8192,
+      tools: [{ type: "web_search_20250305", name: "web_search" }],
+      messages,
+    });
+
+    // Add the full assistant response (including any tool_use + tool_result blocks)
+    messages.push({ role: "assistant", content: response.content });
+
+    if (response.stop_reason === "end_turn") {
+      // Extract the final text block
+      const textBlock = response.content.find((b) => b.type === "text");
+      if (!textBlock || textBlock.type !== "text") {
+        throw new Error("Claude returned no text in final response");
+      }
+
+      const raw = textBlock.text
+        .trim()
+        .replace(/^```json\n?/, "")
+        .replace(/\n?```$/, "");
+
+      let parsed: ValuationResponse;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        const match = raw.match(/\{[\s\S]*\}/);
+        if (!match) throw new Error("Claude returned non-JSON response");
+        parsed = JSON.parse(match[0]);
+      }
+
+      parsed.currency = "EUR";
+      return parsed;
+    }
+
+    // stop_reason === "tool_use": Claude called web_search.
+    // Results are already in response.content as web_search_tool_result blocks.
+    // Just loop — the next request includes the full conversation with results.
   }
 
-  // Strip any accidental markdown code blocks
-  const raw = content.text.trim().replace(/^```json\n?/, "").replace(/\n?```$/, "");
-
-  let parsed: ValuationResponse;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    // Try to extract JSON from the response
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("Claude returned non-JSON response");
-    parsed = JSON.parse(jsonMatch[0]);
-  }
-
-  // Ensure currency field
-  parsed.currency = "EUR";
-  return parsed;
+  throw new Error("Valuation loop exceeded maximum iterations");
 }

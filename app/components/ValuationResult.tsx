@@ -1,13 +1,13 @@
 "use client";
 
-import { PlayerData, ValuationResponse } from "@/app/lib/types";
+import { ValuationRequest, ValuationResponse } from "@/app/lib/types";
 import PlayerCard from "./PlayerCard";
 import PlayerRadarChart from "./PlayerRadarChart";
 import ValuationFactorsChart from "./ValuationFactorsChart";
-import { TrendingUp, TrendingDown, Minus, Users, MessageSquare, Target } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Users, MessageSquare, Target, Globe } from "lucide-react";
 
 interface Props {
-  player: PlayerData;
+  request: ValuationRequest;
   valuation: ValuationResponse;
 }
 
@@ -31,15 +31,20 @@ function confidenceLabel(score: number) {
   return "Very Low";
 }
 
-export default function ValuationResult({ player, valuation }: Props) {
+export default function ValuationResult({ request, valuation }: Props) {
+  const { playerInfo: player } = valuation;
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* ── Player Card ─────────────────────────────────────────── */}
-      <PlayerCard player={player} />
+      <PlayerCard
+        player={player}
+        salary={request.salary}
+        contractYearsRemaining={request.contractYearsRemaining}
+      />
 
       {/* ── Valuation Hero ──────────────────────────────────────── */}
       <div className="bg-surface border border-border rounded-2xl p-6 relative overflow-hidden">
-        {/* Background accent glow */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-accent/5 rounded-full -translate-y-32 translate-x-32 pointer-events-none" />
 
         <div className="relative">
@@ -48,11 +53,9 @@ export default function ValuationResult({ player, valuation }: Props) {
               <p className="text-sm text-muted font-medium uppercase tracking-wider mb-1">
                 Estimated Market Value
               </p>
-              <div className="flex items-baseline gap-3">
-                <span className="text-5xl md:text-6xl font-black text-accent">
-                  {formatMillion(valuation.valuationMid)}
-                </span>
-              </div>
+              <span className="text-5xl md:text-6xl font-black text-accent">
+                {formatMillion(valuation.valuationMid)}
+              </span>
               <p className="text-muted mt-2 text-sm">
                 Range:{" "}
                 <span className="text-primary font-medium">
@@ -62,13 +65,10 @@ export default function ValuationResult({ player, valuation }: Props) {
               </p>
             </div>
 
-            {/* Confidence meter */}
             <div className="md:text-right">
               <p className="text-sm text-muted mb-1">AI Confidence</p>
               <div className="flex md:justify-end items-center gap-2 mb-1">
-                <span
-                  className={`text-3xl font-bold ${confidenceColor(valuation.confidenceScore)}`}
-                >
+                <span className={`text-3xl font-bold ${confidenceColor(valuation.confidenceScore)}`}>
                   {valuation.confidenceScore}
                 </span>
                 <span className="text-muted text-lg">/100</span>
@@ -76,16 +76,13 @@ export default function ValuationResult({ player, valuation }: Props) {
               <p className={`text-sm font-medium ${confidenceColor(valuation.confidenceScore)}`}>
                 {confidenceLabel(valuation.confidenceScore)}
               </p>
-              <p className="text-xs text-muted mt-1 max-w-xs">
-                {valuation.confidenceReason}
-              </p>
+              <p className="text-xs text-muted mt-1 max-w-xs">{valuation.confidenceReason}</p>
             </div>
           </div>
 
           {/* Range bar */}
           <div className="mt-6">
             <div className="relative h-4 bg-surface-alt rounded-full border border-border overflow-visible">
-              {/* Fill */}
               <div
                 className="absolute h-full bg-gradient-to-r from-accent/40 via-accent to-accent/40 rounded-full"
                 style={{
@@ -93,7 +90,6 @@ export default function ValuationResult({ player, valuation }: Props) {
                   right: `${100 - (valuation.valuationMax / (valuation.valuationMax * 1.1)) * 100}%`,
                 }}
               />
-              {/* Mid marker */}
               <div
                 className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-accent rounded-full border-2 border-surface shadow-lg shadow-accent/30"
                 style={{
@@ -109,6 +105,22 @@ export default function ValuationResult({ player, valuation }: Props) {
               <span className="text-xs text-muted">{formatMillion(valuation.valuationMax)}</span>
             </div>
           </div>
+
+          {/* Sources consulted */}
+          {valuation.sourcesConsulted?.length > 0 && (
+            <div className="mt-4 flex items-center gap-2 flex-wrap">
+              <Globe size={13} className="text-muted shrink-0" />
+              <span className="text-xs text-muted">Sources:</span>
+              {valuation.sourcesConsulted.map((src) => (
+                <span
+                  key={src}
+                  className="text-xs bg-surface-alt border border-border rounded-full px-2 py-0.5 text-muted"
+                >
+                  {src}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -152,7 +164,7 @@ export default function ValuationResult({ player, valuation }: Props) {
       </div>
 
       {/* ── Similar Transfers ────────────────────────────────────── */}
-      {valuation.similarPlayers && valuation.similarPlayers.length > 0 && (
+      {valuation.similarPlayers?.length > 0 && (
         <div className="bg-surface border border-border rounded-2xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <Users size={18} className="text-accent" />
@@ -189,18 +201,16 @@ export default function ValuationResult({ player, valuation }: Props) {
           <MessageSquare size={18} className="text-accent" />
           <h3 className="font-semibold text-primary">The Verdict</h3>
           <Target size={14} className="text-muted ml-auto" />
-          <span className="text-xs text-muted">AI Analysis</span>
+          <span className="text-xs text-muted">AI Analysis · Web Search</span>
         </div>
         <p className="text-secondary leading-relaxed pl-3 whitespace-pre-line">
           {valuation.verdict}
         </p>
       </div>
 
-      {/* Disclaimer */}
       <p className="text-xs text-muted/60 text-center pb-4">
-        This valuation is AI-generated based on available statistics and market comparisons.
-        It does not constitute financial or transfer advice.
-        Data sourced from API-Football · Analysis by Claude AI
+        Valuation generated by Claude AI using live web search data.
+        Not financial or transfer advice.
       </p>
     </div>
   );

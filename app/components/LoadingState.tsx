@@ -4,24 +4,17 @@ import { useEffect, useState } from "react";
 import { LoadingStep } from "@/app/lib/types";
 
 const MESSAGES: Record<LoadingStep, string[]> = {
-  searching: [
-    "Scouting the player...",
-    "Checking transfer databases...",
-    "Cross-referencing squad lists...",
-  ],
-  fetching: [
-    "Analyzing performance data...",
-    "Pulling season statistics...",
-    "Loading match records...",
-    "Gathering league benchmarks...",
-  ],
   analyzing: [
-    "Calculating market value...",
+    "Searching FBref for stats...",
+    "Checking Transfermarkt...",
+    "Reading WhoScored data...",
+    "Analyzing performance data...",
     "Comparing similar transfers...",
     "Weighing contract factors...",
     "Consulting the scouting network...",
-    "Running valuation models...",
+    "Calculating market value...",
     "Assessing marketability...",
+    "Writing the verdict...",
   ],
   idle: [],
   done: [],
@@ -65,9 +58,7 @@ export default function LoadingState({ step }: Props) {
           {messages[msgIndex]}
         </p>
         <p className="text-sm text-muted mt-1">
-          {step === "searching" && "Searching player database"}
-          {step === "fetching" && "Fetching live stats from API-Football"}
-          {step === "analyzing" && "Claude AI is analyzing all available data"}
+          Claude AI is searching the web for live stats
         </p>
       </div>
 

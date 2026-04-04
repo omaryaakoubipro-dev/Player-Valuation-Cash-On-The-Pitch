@@ -1,20 +1,18 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import LeagueSelector, { League } from "./components/LeagueSelector";
+import { useState } from "react";
 import SearchBar from "./components/SearchBar";
 import LoadingState from "./components/LoadingState";
 import ValuationResult from "./components/ValuationResult";
 import ContractInputs from "./components/ContractInputs";
-import { PlayerData, PlayerSearchResult, ValuationResponse, LoadingStep } from "./lib/types";
+import { ValuationRequest, ValuationResponse, LoadingStep } from "./lib/types";
 import { AlertCircle, Sparkles, RotateCcw } from "lucide-react";
 
 export default function Home() {
-  const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
   const [loadingStep, setLoadingStep] = useState<LoadingStep>("idle");
   const [error, setError] = useState<string | null>(null);
-  const [player, setPlayer] = useState<PlayerData | null>(null);
   const [valuation, setValuation] = useState<ValuationResponse | null>(null);
+  const [lastRequest, setLastRequest] = useState<ValuationRequest | null>(null);
   const [salary, setSalary] = useState("");
   const [contractYears, setContractYears] = useState("");
 
@@ -26,77 +24,48 @@ export default function Home() {
     !isNaN(parseFloat(contractYears)) &&
     parseFloat(contractYears) >= 0;
 
-  function handleLeagueSelect(league: League) {
-    setSelectedLeague(league);
-    setPlayer(null);
-    setValuation(null);
+  async function handleSubmit(playerName: string) {
+    if (!contractReady) return;
+
+    const req: ValuationRequest = {
+      playerName,
+      salary: parseFloat(salary),
+      contractYearsRemaining: parseFloat(contractYears),
+    };
+
     setError(null);
-    setLoadingStep("idle");
+    setValuation(null);
+    setLastRequest(req);
+    setLoadingStep("analyzing");
+
+    try {
+      const res = await fetch("/api/valuation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error ?? "Valuation failed");
+      setValuation(data.valuation);
+      setLoadingStep("done");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Valuation failed");
+      setLoadingStep("error");
+    }
   }
 
   function handleReset() {
-    setSelectedLeague(null);
-    setPlayer(null);
-    setValuation(null);
-    setError(null);
     setLoadingStep("idle");
+    setValuation(null);
+    setLastRequest(null);
+    setError(null);
     setSalary("");
     setContractYears("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  const handlePlayerSelect = useCallback(
-    async (searchResult: PlayerSearchResult) => {
-      setError(null);
-      setPlayer(null);
-      setValuation(null);
-
-      // Step 1: Fetch full player data
-      setLoadingStep("fetching");
-      let playerData: PlayerData;
-      try {
-        const res = await fetch(`/api/player/${searchResult.id}`);
-        const data = await res.json();
-        if (!res.ok || data.error) throw new Error(data.error ?? "Failed to load player");
-        playerData = data.player;
-        setPlayer(playerData);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load player data");
-        setLoadingStep("error");
-        return;
-      }
-
-      // Step 2: AI valuation
-      setLoadingStep("analyzing");
-      try {
-        const body = {
-          player: playerData,
-          salary: parseFloat(salary),
-          contractYearsRemaining: parseFloat(contractYears),
-        };
-
-        const res = await fetch("/api/valuation", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        const data = await res.json();
-        if (!res.ok || data.error) throw new Error(data.error ?? "Valuation failed");
-        setValuation(data.valuation);
-        setLoadingStep("done");
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Valuation analysis failed");
-        setLoadingStep("error");
-      }
-    },
-    [salary, contractYears]
-  );
-
-  const isLoading =
-    loadingStep === "fetching" ||
-    loadingStep === "analyzing" ||
-    loadingStep === "searching";
-  const isDone = loadingStep === "done" && player && valuation;
+  const isLoading = loadingStep === "analyzing";
+  const isDone = loadingStep === "done" && valuation && lastRequest;
 
   return (
     <main className="min-h-screen bg-background">
@@ -107,35 +76,30 @@ export default function Home() {
           <div className="text-center mb-10">
             <div className="inline-flex items-center gap-2 bg-accent/10 border border-accent/20 rounded-full px-4 py-1.5 mb-4">
               <Sparkles size={14} className="text-accent" />
-              <span className="text-xs text-accent font-medium">Powered by Claude AI</span>
+              <span className="text-xs text-accent font-medium">
+                Powered by Claude AI · Live Web Search
+              </span>
             </div>
             <h1 className="text-4xl md:text-5xl font-black text-primary mb-3 leading-tight">
               What is this player
               <span className="text-accent"> worth?</span>
             </h1>
             <p className="text-muted text-lg max-w-xl mx-auto">
-              Fill in the 3 fields below, then search a player for an AI-powered
-              market valuation with detailed analysis and comparable transfers.
+              Claude searches FBref, Transfermarkt, and WhoScored in real time,
+              then produces a detailed AI valuation with comparable transfers.
             </p>
           </div>
         )}
 
-        {/* ── Step 1: League selector ───────────────────────────────── */}
-        <section className="mb-6">
-          <LeagueSelector selected={selectedLeague} onSelect={handleLeagueSelect} />
-        </section>
-
-        {/* ── Step 2: Player search ─────────────────────────────────── */}
+        {/* ── Step 1: Player name ───────────────────────────────────── */}
         <section className="mb-6">
           <SearchBar
-            leagueId={selectedLeague?.id ?? null}
-            onSelect={handlePlayerSelect}
+            onSubmit={handleSubmit}
             disabled={isLoading || !contractReady}
-            contractReady={contractReady}
           />
         </section>
 
-        {/* ── Step 3: Contract & Salary ─────────────────────────────── */}
+        {/* ── Step 2: Contract & Salary ─────────────────────────────── */}
         <section className="mb-6">
           <ContractInputs
             salary={salary}
@@ -164,7 +128,10 @@ export default function Home() {
           <div className="mt-6">
             <div className="flex justify-between items-center mb-4">
               <p className="text-sm text-muted">
-                Valuation for <span className="text-primary font-medium">{player.name}</span>
+                Valuation for{" "}
+                <span className="text-primary font-medium">
+                  {valuation.playerInfo.name}
+                </span>
               </p>
               <button
                 onClick={handleReset}
@@ -175,7 +142,7 @@ export default function Home() {
               </button>
             </div>
 
-            <ValuationResult player={player} valuation={valuation} />
+            <ValuationResult request={lastRequest} valuation={valuation} />
 
             <div className="mt-8 flex justify-center">
               <button
@@ -195,18 +162,18 @@ export default function Home() {
             {[
               {
                 icon: "🔍",
-                title: "Search any player",
-                desc: "Players from the top European leagues — 1 API request per search",
+                title: "Live web search",
+                desc: "Claude searches FBref, Transfermarkt & WhoScored for the latest stats — no API key needed",
               },
               {
                 icon: "📊",
                 title: "Position-aware analysis",
-                desc: "Defenders judged on defending. Forwards on goals. Fair metrics.",
+                desc: "Defenders judged on defending. Forwards on goals. Fair, position-specific metrics.",
               },
               {
                 icon: "💶",
                 title: "Market value with reasoning",
-                desc: "Not just a number — full breakdown with comparable transfers",
+                desc: "Not just a number — full breakdown with comparable transfers and a plain-language verdict.",
               },
             ].map((item) => (
               <div key={item.title} className="bg-surface border border-border rounded-xl p-5">
