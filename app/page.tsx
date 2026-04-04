@@ -58,7 +58,7 @@ export default function Home() {
             <div className="inline-flex items-center gap-2 bg-accent/10 border border-accent/20 rounded-full px-4 py-1.5 mb-4">
               <Sparkles size={14} className="text-accent" />
               <span className="text-xs text-accent font-medium">
-                Powered by Claude AI · Live Web Search
+                Powered by Cash On The Pitch
               </span>
             </div>
             <h1 className="text-4xl md:text-5xl font-black text-primary mb-3 leading-tight">
