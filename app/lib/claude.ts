@@ -150,7 +150,15 @@ REQUIREMENTS:
 6. The verdict must cite actual stats you found.`;
 }
 
-// ─── Main Valuation Function ──────────────────────────────────────────────────
+// ─── System prompt — enforces JSON-only final output ─────────────────────────
+const SYSTEM_PROMPT = `You are an elite football player valuation analyst with access to web search.
+Your job is to research a player using web search, then output a single valid JSON object.
+
+CRITICAL OUTPUT RULE: When you have finished all your research, your final response must be
+ONLY the raw JSON object — no introduction, no explanation, no markdown code fences, no text
+before or after the JSON. Just the JSON object starting with { and ending with }.`;
+
+
 export async function valuatePlayer(
   req: ValuationRequest
 ): Promise<ValuationResponse> {
@@ -169,7 +177,8 @@ export async function valuatePlayer(
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     const response = await client.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 8192,
+      max_tokens: 16000,
+      system: SYSTEM_PROMPT,
       tools: [{ type: "web_search_20250305", name: "web_search" }],
       messages,
     });
@@ -178,28 +187,46 @@ export async function valuatePlayer(
     messages.push({ role: "assistant", content: response.content });
 
     if (response.stop_reason === "end_turn") {
-      // Extract the final text block
       const textBlock = response.content.find((b) => b.type === "text");
       if (!textBlock || textBlock.type !== "text") {
         throw new Error("Claude returned no text in final response");
       }
 
-      const raw = textBlock.text
-        .trim()
-        .replace(/^```json\n?/, "")
-        .replace(/\n?```$/, "");
+      const text = textBlock.text.trim();
 
-      let parsed: ValuationResponse;
+      // Strip accidental markdown fences
+      const stripped = text
+        .replace(/^```json\s*/i, "")
+        .replace(/^```\s*/i, "")
+        .replace(/\s*```$/i, "")
+        .trim();
+
+      // First try: direct parse
       try {
-        parsed = JSON.parse(raw);
+        const parsed = JSON.parse(stripped) as ValuationResponse;
+        parsed.currency = "EUR";
+        return parsed;
       } catch {
-        const match = raw.match(/\{[\s\S]*\}/);
-        if (!match) throw new Error("Claude returned non-JSON response");
-        parsed = JSON.parse(match[0]);
+        // Second try: extract the outermost {...} block
+        const match = stripped.match(/\{[\s\S]*\}/);
+        if (match) {
+          try {
+            const parsed = JSON.parse(match[0]) as ValuationResponse;
+            parsed.currency = "EUR";
+            return parsed;
+          } catch {
+            // fall through to re-prompt
+          }
+        }
       }
 
-      parsed.currency = "EUR";
-      return parsed;
+      // Third try: ask Claude to fix its own output
+      messages.push({
+        role: "user",
+        content:
+          "Your response was not valid JSON. Please output ONLY the raw JSON object — nothing else, no explanation, no markdown.",
+      });
+      // loop continues for one more iteration
     }
 
     // stop_reason === "tool_use": Claude called web_search.
