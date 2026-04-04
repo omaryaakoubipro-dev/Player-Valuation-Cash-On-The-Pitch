@@ -46,7 +46,7 @@ function CustomTick(props: Record<string, unknown>) {
     <text
       x={x}
       y={y}
-      textAnchor={textAnchor}
+      textAnchor={textAnchor as "start" | "middle" | "end" | "inherit"}
       fill="var(--color-muted)"
       fontSize={11}
       fontWeight={500}
