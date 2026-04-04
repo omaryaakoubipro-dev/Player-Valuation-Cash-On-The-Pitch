@@ -44,8 +44,6 @@ export interface PlayerInfo {
 // ─── Valuation request ────────────────────────────────────────────────────────
 export interface ValuationRequest {
   playerName: string;
-  salary: number;           // monthly in EUR
-  contractYearsRemaining: number;
 }
 
 // ─── Valuation response (from Claude) ────────────────────────────────────────

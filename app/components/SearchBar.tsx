@@ -18,13 +18,6 @@ export default function SearchBar({ onSubmit, disabled }: Props) {
 
   return (
     <div className="w-full max-w-2xl mx-auto">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-sm font-semibold text-primary uppercase tracking-wider">
-          1. Player name
-        </span>
-        <span className="text-xs text-red-400 font-medium">required</span>
-      </div>
-
       <form onSubmit={handleSubmit} className="flex gap-2">
         <div
           className={`flex flex-1 items-center gap-3 px-4 py-3.5 rounded-xl border bg-surface transition-all duration-200 ${

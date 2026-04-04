@@ -47,14 +47,11 @@ Key metrics for goalkeepers (search these specifically):
 function buildPrompt(req: ValuationRequest): string {
   return `You are an elite football player valuation analyst. Your task is to research and value ${req.playerName}.
 
-CONTRACT & SALARY (provided by user):
-- Monthly salary: €${req.salary.toLocaleString()} (≈ €${(req.salary * 12).toLocaleString()}/year)
-- Contract years remaining: ${req.contractYearsRemaining}
-
 RESEARCH INSTRUCTIONS:
 1. Search the web for "${req.playerName} stats 2024-25 season" to find their current stats from FBref, WhoScored, or SofaScore.
-2. Search for "${req.playerName} Transfermarkt" to find their current club, age, nationality, market value, and contract details.
-3. Search for "${req.playerName} position" to confirm their position if needed.
+2. Search for "${req.playerName} Transfermarkt" to find their current club, age, nationality, market value, and contract expiry.
+3. Search for "${req.playerName} salary contract 2024 2025" to find their wage and contract details from sources like Capology, Spotrac, or Transfermarkt.
+4. Search for "${req.playerName} position" to confirm their position if needed.
 
 POSITION-SPECIFIC METRICS TO LOOK FOR:
 (You will determine the position from your searches, then apply the right metrics)
@@ -143,7 +140,7 @@ REQUIREMENTS:
 1. factors: Exactly 6 — "Age Curve", "Performance Level", "Contract Situation", "League Level", "Profile Rarity", "Marketability". Weights must sum to 100.
 2. radarData: Exactly 6 position-relevant metrics, normalised 0-100 (100 = world class, 50 = league average).
 3. similarPlayers: 3 real comparable transfers from the last 5 years.
-4. Contract situation: ${req.contractYearsRemaining} years remaining and €${(req.salary * 12).toLocaleString()}/yr salary are already known — factor them directly.
+4. Contract situation: use the salary and contract expiry you found via web search. If unavailable, note the uncertainty and widen the valuation range slightly.
 5. Use position-specific logic — do NOT penalise defenders for low goal counts.
 6. The verdict must cite actual stats you found.`;
 }

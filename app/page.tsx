@@ -4,7 +4,6 @@ import { useState } from "react";
 import SearchBar from "./components/SearchBar";
 import LoadingState from "./components/LoadingState";
 import ValuationResult from "./components/ValuationResult";
-import ContractInputs from "./components/ContractInputs";
 import { ValuationRequest, ValuationResponse, LoadingStep } from "./lib/types";
 import { AlertCircle, Sparkles, RotateCcw } from "lucide-react";
 
@@ -13,25 +12,9 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [valuation, setValuation] = useState<ValuationResponse | null>(null);
   const [lastRequest, setLastRequest] = useState<ValuationRequest | null>(null);
-  const [salary, setSalary] = useState("");
-  const [contractYears, setContractYears] = useState("");
-
-  const contractReady =
-    salary.trim() !== "" &&
-    !isNaN(parseFloat(salary)) &&
-    parseFloat(salary) > 0 &&
-    contractYears.trim() !== "" &&
-    !isNaN(parseFloat(contractYears)) &&
-    parseFloat(contractYears) >= 0;
 
   async function handleSubmit(playerName: string) {
-    if (!contractReady) return;
-
-    const req: ValuationRequest = {
-      playerName,
-      salary: parseFloat(salary),
-      contractYearsRemaining: parseFloat(contractYears),
-    };
+    const req: ValuationRequest = { playerName };
 
     setError(null);
     setValuation(null);
@@ -59,8 +42,6 @@ export default function Home() {
     setValuation(null);
     setLastRequest(null);
     setError(null);
-    setSalary("");
-    setContractYears("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -85,28 +66,16 @@ export default function Home() {
               <span className="text-accent"> worth?</span>
             </h1>
             <p className="text-muted text-lg max-w-xl mx-auto">
-              Claude searches FBref, Transfermarkt, and WhoScored in real time,
-              then produces a detailed AI valuation with comparable transfers.
+              Type a player name. Claude searches FBref, Transfermarkt, and
+              WhoScored in real time — stats, salary, contract — then produces
+              a full AI-powered market valuation.
             </p>
           </div>
         )}
 
-        {/* ── Step 1: Player name ───────────────────────────────────── */}
+        {/* ── Search ───────────────────────────────────────────────── */}
         <section className="mb-6">
-          <SearchBar
-            onSubmit={handleSubmit}
-            disabled={isLoading || !contractReady}
-          />
-        </section>
-
-        {/* ── Step 2: Contract & Salary ─────────────────────────────── */}
-        <section className="mb-6">
-          <ContractInputs
-            salary={salary}
-            contractYears={contractYears}
-            onSalaryChange={setSalary}
-            onContractYearsChange={setContractYears}
-          />
+          <SearchBar onSubmit={handleSubmit} disabled={isLoading} />
         </section>
 
         {/* ── Loading ──────────────────────────────────────────────── */}
@@ -114,7 +83,7 @@ export default function Home() {
 
         {/* ── Error ────────────────────────────────────────────────── */}
         {loadingStep === "error" && error && (
-          <div className="flex items-start gap-3 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 mt-4">
+          <div className="flex items-start gap-3 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400">
             <AlertCircle size={18} className="shrink-0 mt-0.5" />
             <div>
               <p className="font-medium">Something went wrong</p>
@@ -156,14 +125,14 @@ export default function Home() {
           </div>
         )}
 
-        {/* ── Empty state feature cards ─────────────────────────────── */}
+        {/* ── Empty state ───────────────────────────────────────────── */}
         {loadingStep === "idle" && (
           <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
             {[
               {
                 icon: "🔍",
-                title: "Live web search",
-                desc: "Claude searches FBref, Transfermarkt & WhoScored for the latest stats — no API key needed",
+                title: "Just type a name",
+                desc: "No league selector, no form fields. Claude finds everything — stats, salary, contract — automatically.",
               },
               {
                 icon: "📊",
@@ -173,7 +142,7 @@ export default function Home() {
               {
                 icon: "💶",
                 title: "Market value with reasoning",
-                desc: "Not just a number — full breakdown with comparable transfers and a plain-language verdict.",
+                desc: "Not just a number — comparable transfers, strengths & weaknesses, and a plain-language verdict.",
               },
             ].map((item) => (
               <div key={item.title} className="bg-surface border border-border rounded-xl p-5">

@@ -5,8 +5,6 @@ import { MapPin, Calendar, Ruler } from "lucide-react";
 
 interface Props {
   player: PlayerInfo;
-  salary: number;
-  contractYearsRemaining: number;
 }
 
 const POSITION_BADGE: Record<string, { label: string; color: string }> = {
@@ -38,9 +36,8 @@ function StatBox({ value, label, highlight }: { value: string | number; label: s
   );
 }
 
-export default function PlayerCard({ player, salary, contractYearsRemaining }: Props) {
+export default function PlayerCard({ player }: Props) {
   const badge = POSITION_BADGE[player.position] ?? { label: "??", color: "bg-gray-500" };
-  const s = player.stats;
   const quickStats = getQuickStats(player);
 
   return (
@@ -80,22 +77,6 @@ export default function PlayerCard({ player, salary, contractYearsRemaining }: P
                 <MetaItem icon={<Ruler size={14} />} label={player.height} />
               )}
             </div>
-          </div>
-        </div>
-
-        {/* Contract info bar */}
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <div className="bg-surface-alt border border-border rounded-xl p-3 text-center">
-            <div className="text-lg font-bold text-primary">
-              €{(salary * 12).toLocaleString()}
-            </div>
-            <div className="text-xs text-muted mt-0.5">Annual Salary</div>
-          </div>
-          <div className="bg-surface-alt border border-border rounded-xl p-3 text-center">
-            <div className={`text-lg font-bold ${contractYearsRemaining <= 1 ? "text-red-400" : "text-primary"}`}>
-              {contractYearsRemaining}y
-            </div>
-            <div className="text-xs text-muted mt-0.5">Contract Left</div>
           </div>
         </div>
 

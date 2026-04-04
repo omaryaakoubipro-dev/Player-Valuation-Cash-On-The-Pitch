@@ -14,15 +14,6 @@ export async function POST(request: NextRequest) {
   if (!body.playerName?.trim()) {
     return NextResponse.json({ error: "playerName is required" }, { status: 400 });
   }
-  if (typeof body.salary !== "number" || body.salary <= 0) {
-    return NextResponse.json({ error: "salary must be a positive number" }, { status: 400 });
-  }
-  if (typeof body.contractYearsRemaining !== "number" || body.contractYearsRemaining < 0) {
-    return NextResponse.json(
-      { error: "contractYearsRemaining must be a non-negative number" },
-      { status: 400 }
-    );
-  }
 
   try {
     const valuation = await valuatePlayer(body);

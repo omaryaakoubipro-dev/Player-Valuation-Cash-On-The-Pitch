@@ -37,11 +37,7 @@ export default function ValuationResult({ request, valuation }: Props) {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* ── Player Card ─────────────────────────────────────────── */}
-      <PlayerCard
-        player={player}
-        salary={request.salary}
-        contractYearsRemaining={request.contractYearsRemaining}
-      />
+      <PlayerCard player={player} />
 
       {/* ── Valuation Hero ──────────────────────────────────────── */}
       <div className="bg-surface border border-border rounded-2xl p-6 relative overflow-hidden">
