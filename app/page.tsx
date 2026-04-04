@@ -66,9 +66,8 @@ export default function Home() {
               <span className="text-accent"> worth?</span>
             </h1>
             <p className="text-muted text-lg max-w-xl mx-auto">
-              Type a player name. Claude searches FBref, Transfermarkt, and
-              WhoScored in real time — stats, salary, contract — then produces
-              a full AI-powered market valuation.
+              Type a player name. We fetch real-time stats, salary, and
+              contract data — then produce a full AI-powered market valuation.
             </p>
           </div>
         )}
