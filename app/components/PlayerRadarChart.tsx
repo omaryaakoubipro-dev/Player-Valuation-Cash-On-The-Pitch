@@ -17,14 +17,11 @@ interface Props {
 }
 
 // Custom tick that wraps long labels across two lines so they never overflow.
-function CustomTick({
-  x, y, payload, textAnchor,
-}: {
-  x: number;
-  y: number;
-  payload: { value: string };
-  textAnchor: string;
-}) {
+function CustomTick(props: Record<string, unknown>) {
+  const x = props.x as number;
+  const y = props.y as number;
+  const payload = props.payload as { value: string };
+  const textAnchor = (props.textAnchor as string) ?? "middle";
   const label: string = payload.value ?? "";
   // Split on space or "/" into at most two lines (~14 chars per line)
   const words = label.split(/[\s/]+/);
