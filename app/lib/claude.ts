@@ -48,10 +48,15 @@ function buildPrompt(req: ValuationRequest): string {
   return `You are an elite football player valuation analyst. Your task is to research and value ${req.playerName}.
 
 RESEARCH INSTRUCTIONS:
-1. Search the web for "${req.playerName} stats 2024-25 season" to find their current stats from FBref, WhoScored, or SofaScore.
+1. Search the web for "${req.playerName} stats 2024-25 all competitions" to find their stats from FBref, WhoScored, or SofaScore. You MUST use combined/aggregate stats across ALL competitions (league + cup + European + international) — NOT just the domestic league. FBref's "All competitions" tab or WhoScored's combined totals are ideal sources.
 2. Search for "${req.playerName} Transfermarkt" to find their current club, age, nationality, market value, and contract expiry.
 3. Search for "${req.playerName} salary contract 2024 2025" to find their wage and contract details from sources like Capology, Spotrac, or Transfermarkt.
 4. Search for "${req.playerName} position" to confirm their position if needed.
+
+CRITICAL — ALL COMPETITIONS:
+Always report stats aggregated across ALL competitions for the 2024/25 season.
+For example, a player at Barcelona plays La Liga + Champions League + Copa del Rey — their total goals/assists/appearances must include all three, not just La Liga.
+If you can only find league-only stats, clearly note this limitation in the verdict and stats, but still try to find the full picture.
 
 POSITION-SPECIFIC METRICS TO LOOK FOR:
 (You will determine the position from your searches, then apply the right metrics)
