@@ -45,7 +45,7 @@ export default function RootLayout({
             {/* Right: theme toggle */}
             <div className="flex items-center gap-3">
               <span className="hidden sm:inline text-xs text-muted border border-border rounded-full px-3 py-1">
-                Powered by Claude AI
+                Powered by Cash On The Pitch
               </span>
               <ThemeToggle />
             </div>
